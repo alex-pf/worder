@@ -131,7 +131,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "Stop": await finish_game(update, context) if user_data.get('game_active') else None
     elif text == "Add picture" and user_id in config.ADMIN_IDS:
         user_data['awaiting_admin_action'] = 'send_photo'
-        await update.message.reply_text("Send me a picture.")
+        await update.message.reply_text("Send me new picture.")
     elif text == "Next" and user_data.get('game_active'):
         user_data['current_index'] += 1; await send_next_word(update, context)
     elif user_data.get('game_active'):
