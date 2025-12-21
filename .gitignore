@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.db
+temp_audio/
+config.py
+words/
+words-test/
+idea/
+.DS_Store
