@@ -14,7 +14,7 @@ import database
 def get_keyboard(user_id):
     buttons = [['Start', 'Next', 'Stop']]
     if user_id in config.ADMIN_IDS:
-        buttons.append(['Add picture to base'])
+        buttons.append(['Add picture'])
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
 # --- ТАЙМЕРЫ ---
