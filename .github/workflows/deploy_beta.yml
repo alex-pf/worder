@@ -1,4 +1,4 @@
-name: Deploy Worder Bot
+name: Deploy Worder Bot Beta
 
 on:
   push:
