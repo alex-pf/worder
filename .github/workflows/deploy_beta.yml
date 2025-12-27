@@ -20,8 +20,15 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /home/devuser/beta/worder
-            # Принудительно используем SSH конфиг для git
             git fetch --all
             git reset --hard origin/main
+
+            # 1. Гарантируем наличие venv (если вдруг удалили)
+            python3 -m venv venv
+
+            # 2. Обновляем pip и устанавливаем зависимости
+            ./venv/bin/python -m pip install --upgrade pip
             ./venv/bin/pip install -r requirements.txt
-            sudo systemctl restart worder
+
+            # 3. Перезапускаем конкретный бета-сервис
+            sudo systemctl restart worder-beta
