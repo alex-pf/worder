@@ -77,94 +77,58 @@ async def get_weekly_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1. Получаем данные из базы
     stats = database.get_weekly_stats(user_id)
 
+    # Если данных нет вообще, выводим только текст
     if not stats:
-        message = "📊 *Статистика за последние 7 дней:*\n\nПока данных нет. Начните тренировку!"
         await update.message.reply_text(
-            message,
+            "📊 *Статистика за 7 дней:*\n\nДанных пока нет. Начни заниматься, чтобы увидеть свой график!",
             parse_mode='Markdown',
             reply_markup=get_keyboard(user_id, STATE_IDLE)
         )
         return
 
-    # 2. Формируем текстовую часть
-    message = "📊 *Статистика за последние 7 дней:*\n\n"
-    total_week = 0
-    for date_str, count in stats:
-        message += f"📅 {date_str}: {count} слов\n"
-        total_week += count
-    message += f"\n🔥 Всего за неделю: {total_week}"
-
-    # 3. Отправляем текст сразу
-    await update.message.reply_text(
-        message,
-        parse_mode='Markdown',
-        reply_markup=get_keyboard(user_id, STATE_IDLE)
-    )
-
-    # 4. ДЕКОРИРУЕМ ОЖИДАНИЕ (по аналогии с voice)
-    status = await update.message.reply_text("Drawing your progress... 🎨")
+    # 2. Информируем об ожидании (так как GPT + генерация PNG занимают 3-5 секунд)
+    status_msg = await update.message.reply_text("📊 Please wait... I'm drawing your progress! 🎨")
 
     try:
-        # Генерируем URL картинки через OpenAI
-        #image_url = await generate_funny_chart_image(stats, user.first_name )
+        # 3. Генерируем график (теперь это путь к локальному PNG)
         image_result = await generate_funny_chart_image(stats, user.first_name)
 
         if image_result:
+            # Считаем общее кол-во слов для подписи
+            total_week = sum(count for date_str, count in stats)
+            caption = f"🌟🌟🌟 *{user.first_name}*, here are your results for the last week! 🔥🔥🔥"
+
+            # Проверяем, что получили: URL или путь к файлу
             if image_result.startswith("http"):
-                # Если пришел URL (старая логика)
-                await update.message.reply_photo(photo=image_result)
+                await update.message.reply_photo(
+                    photo=image_result,
+                    caption=caption,
+                    parse_mode='Markdown',
+                    reply_markup=get_keyboard(user_id, STATE_IDLE)
+                )
             else:
-                # Если пришел путь к файлу (новая отладочная логика)
                 with open(image_result, 'rb') as photo:
-                    await update.message.reply_photo(photo=photo)
-                # Удаляем файл после отправки
+                    await update.message.reply_photo(
+                        photo=photo,
+                        caption=caption,
+                        parse_mode='Markdown',
+                        reply_markup=get_keyboard(user_id, STATE_IDLE)
+                    )
+                # Удаляем временный файл после отправки
                 if os.path.exists(image_result):
                     os.remove(image_result)
-        '''
-        if image_url:
-            # Отправляем фото
-            await update.message.reply_photo(
-                photo=image_url,
-                caption="🌟 Your amazing results!"
-            )'''
-    finally:
-        # Удаляем сообщение со статусом в любом случае (успех или ошибка)
-        await status.delete()
-
-
-'''
-async def get_weekly_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-
-    # Получаем данные из базы
-    stats = database.get_weekly_stats(user_id)
-
-    if not stats:
-        message = "📊 *Статистика за последние 7 дней:*\n\nПока данных нет. Начните тренировку!"
-    else:
-        message = "📊 *Статистика за последние 7 дней:*\n\n"
-        total_week = 0
-        for date_str, count in stats:
-            # Преобразуем строку даты для красоты (опционально)
-            message += f"📅 {date_str}: {count} слов\n"
-            total_week += count
-
-        message += f"\n🔥 Всего за неделю: {total_week}"
-
-        image_url = await generate_funny_chart_image(stats)
-        if image_url:
-            # Отправляем фото отдельным сообщением
-            await update.message.reply_photo(
-                photo=image_url,
-                caption="🎨 Твой прогресс в картинке!"
+        else:
+            # Если картинка не сгенерировалась, выводим хотя бы итоговую сумму
+            total_week = sum(count for date_str, count in stats)
+            await update.message.reply_text(
+                f"Не удалось нарисовать график, но ты молодец!\n🔥 За неделю выучено слов: {total_week}",
+                reply_markup=get_keyboard(user_id, STATE_IDLE)
             )
 
-    # Отправляем сообщение, сохраняя "холостое" состояние клавиатуры (STATE_IDLE)
-    # так как просмотр рейтинга обычно происходит вне активной игры
-    await update.message.reply_text(
-        message,
-        parse_mode='Markdown',
-        reply_markup=get_keyboard(user_id, STATE_IDLE)
-    )
-'''
+    except Exception as e:
+        print(f"ERROR in get_weekly_rate: {e}")
+        await update.message.reply_text("Произошла ошибка при подготовке отчета. Попробуй позже.")
+
+    finally:
+        # Удаляем "Drawing..." сообщение в любом случае
+        await status_msg.delete()

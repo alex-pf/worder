@@ -1,4 +1,4 @@
-import os
+#import os
 import tempfile
 import cairosvg
 from datetime import datetime, timedelta
@@ -7,6 +7,7 @@ import config
 
 client = OpenAI(api_key=config.OPENAI_API_KEY)
 
+
 async def generate_funny_chart_image(stats_data, user_name):
     png_path = None
     try:
@@ -14,79 +15,66 @@ async def generate_funny_chart_image(stats_data, user_name):
         today = datetime.now().date()
         date_map = {date_str: count for date_str, count in stats_data}
         counts, dates = [], []
+
         for i in range(6, -1, -1):
             day = today - timedelta(days=i)
             day_str = day.strftime('%Y-%m-%d')
-            dates.append(day_str)
+            dates.append(day.strftime('%d %b'))  # Формат "27 Dec"
             counts.append(date_map.get(day_str, 0))
 
         date_start, date_end = dates[0], dates[-1]
+        max_score = max(counts) if counts else 0  # Находим лучший результат
 
-        # 2. GPT-4o → ТОЧНЫЙ КВАДРАТНЫЙ SVG
+        # 2. GPT-4o → ГЕНЕРАЦИЯ SVG
         svg_prompt = f"""
-        Create a vertical bar chart SVG. 
-        Data: {counts}. Dates: {dates}. 
-        Title: {user_name}'s Progress.
+        Generate a professional SVG vertical bar chart.
+        User: {user_name}
+        Best Result: {max_score} words
+        Period: {date_start} - {date_end}
+        Data: {counts}
+        Labels: {dates}
+
         Rules:
-        - ViewBox MUST be square: "0 0 500 500"
-        - Canvas background MUST be transparent (no <rect> for background)
-        - Use bright solid colors for bars
-        - Text must be black or dark blue
-        - Return ONLY valid SVG code
+        - ViewBox: 0 0 600 450 (increased height for header)
+        - Background: light pastel blue (#E3F2FD) with 20px rounded corners
+
+        - HEADER LOGIC:
+          * Top-left: Text "{user_name}'s Progress" (bold, size 24px)
+          * Top-right: Text "Best: {max_score} words" (size 18px, color #2E7D32)
+          * Subtitle: "{date_start} - {date_end}" below the name (size 14px, gray color)
+
+        - CHART LOGIC:
+          * Bars: use vibrant orange (#FF9800) or teal (#009688)
+          * Heights: bars MUST be exactly proportional to values {counts}
+          * Values: show the numeric value above each bar (size 16px)
+          * X-axis: show dates below each bar (size 12px)
+
+        - Style: clean, modern, flat design. No grid lines.
+        - Return ONLY valid SVG code starting with <svg and ending with </svg>
         """
 
         completion = client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "user", "content": svg_prompt}]
+            messages=[{"role": "user", "content": svg_prompt}],
+            temperature=0.2
         )
 
         raw_content = completion.choices[0].message.content.strip()
 
-        # Очистка кода
+        # Очистка и конвертация (как в предыдущем коде)
         start_idx = raw_content.find("<svg")
         end_idx = raw_content.rfind("</svg>")
         if start_idx != -1 and end_idx != -1:
             svg_code = raw_content[start_idx: end_idx + 6]
         else:
-            svg_code = raw_content.replace("```svg", "").replace("```", "").strip()
+            return None
 
-        # 3. КОНВЕРТАЦИЯ В PNG (RGBA по умолчанию)
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             cairosvg.svg2png(bytestring=svg_code.encode('utf-8'), write_to=tmp.name)
             png_path = tmp.name
 
-        # 4. DALL-E 2 → СТИЛИЗАЦИЯ (LEGO)
-        # Мы отправляем PNG с альфа-каналом. DALL-E перерисует его в Lego-стиле.
-        with open(png_path, "rb") as image_file:
-            response = client.images.edit(
-                model="dall-e-2",
-                image=image_file,
-                prompt=(
-                    f"Add a Lego cartoon style background for the bar chart."
-                    f"It should be scene of lego mini-figures fight with inglish words."
-                    f"Add happy Lego mini-figures on tops of the bars."
-                    f"Don't change original bar chart at all. Only resize it to fit to 1024x1024."
-                ),
-                n=1,
-                size="1024x1024"
-            )
-        return response.data[0].url
+        return png_path
 
     except Exception as e:
         print(f"DEBUG: Error in draw_rate: {e}")
         return None
-    finally:
-        # Чистим временный файл
-        if png_path and os.path.exists(png_path):
-            try:
-                os.remove(png_path)
-            except:
-                pass
-
-'''
-f"Transform this chart into a professional 3D Lego cartoon style. "
-                    f"Bars are stacks of colorful Lego bricks. "
-                    f"Add happy Lego mini-figures on top of the bars. "
-                    f"Background is a blurred playful Lego room. "
-                    f"Vibrant Pixar lighting, high quality render."
-'''
