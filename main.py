@@ -3,7 +3,10 @@ import config
 import database
 import word_manager
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters
-from handlers import handle_message, handle_voice, start_cmd, handle_admin_photo
+from handlers import start_cmd
+from msg_processing import handle_message, handle_voice
+from admin_functions import handle_admin_photo
+
 
 # Настройка логирования для отладки в консоли
 logging.basicConfig(

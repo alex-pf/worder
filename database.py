@@ -102,3 +102,20 @@ def get_user_stats(user_id):
             FROM attempts WHERE user_id = ?
         ''', (user_id,))
         return cursor.fetchone()
+
+def get_weekly_stats(user_id):
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Выбираем дату и количество правильных ответов за последние 7 дней
+        cursor.execute('''
+            SELECT 
+                DATE(created_at) as date, 
+                COUNT(*) as count 
+            FROM attempts 
+            WHERE user_id = ? 
+              AND is_correct = 1 
+              AND created_at >= DATE('now', '-7 days')
+            GROUP BY date
+            ORDER BY date DESC
+        ''', (user_id,))
+        return cursor.fetchall()
