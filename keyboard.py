@@ -1,35 +1,35 @@
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes
-
+from telegram import ReplyKeyboardMarkup
 import config
-'''
-# Динамическая клавиатура
-def get_keyboard(user_id):
-    buttons = [['Start', 'Next', 'Stop']]
-    if user_id in config.ADMIN_IDS:
-        buttons.append(['Add picture'])
-    return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
-'''
 
 # Возможные состояния (константы)
 STATE_IDLE = 'idle'
 STATE_GAME = 'playing'
 
+
 def get_keyboard(user_id, state=STATE_IDLE):
-    print("======Key board state=", state)
     buttons = []
     is_admin = user_id in config.ADMIN_IDS
 
-    # Логика в зависимости от состояния
+    # 1. ОБЫЧНЫЕ КНОПКИ (для всех)
     if state == STATE_GAME:
-        # В игре: Next word и Stop
+        # В игре только управление процессом
         buttons.append(['Next word', 'Stop'])
     else:
-        # Вне игры: Start и Weekly rate
+        # Вне игры только старт и статистика
         buttons.append(['Start', 'Weekly rate'])
 
-    # Если админ — добавляем кнопку в новый ряд
+    # 2. АДМИН-КНОПКИ
     if is_admin:
-        buttons.append(['Add word'])
+        # Создаем ряд для админских кнопок
+        admin_row = ['Add word']
+
+        # Добавляем кнопки управления рассылкой только в режиме покоя
+        if state == STATE_IDLE:
+            admin_row.append('Send global reminder')
+            # Кнопка 'Set reminder' теперь тоже только здесь
+            admin_row.append('Set reminder')
+
+        buttons.append(admin_row)
 
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+

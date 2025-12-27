@@ -78,3 +78,31 @@ async def generate_funny_chart_image(stats_data, user_name):
     except Exception as e:
         print(f"DEBUG: Error in draw_rate: {e}")
         return None
+
+
+async def generate_motivation_image():
+    """
+    Генерирует картинку 'Let's Play' через стабильную DALL-E 3.
+    """
+    try:
+        prompt = (
+            "A cheerful and vibrant 3D cartoon style illustration for kids. "
+            "A friendly monster holding a sign that says 'LET'S PLAY!'. "
+            "Bright colors, high quality 3D render."
+        )
+
+        # Используем DALL-E 3 — она доступна всем аккаунтам Tier 1 и выше без верификации организации
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            # Мы убираем quality совсем, чтобы избежать ошибки 400
+            n=1
+        )
+        return response.data[0].url  # Возвращаем URL первой картинки
+
+    except Exception as e:
+        print(f"DEBUG: Error generating motivation image: {e}")
+        return None
+
+
