@@ -12,12 +12,34 @@ def add_column_if_not_exists(cursor, table, column, definition):
         pass
 
 
+def migrate_old_users(cursor):
+    """
+    Находит всех уникальных пользователей в таблице attempts,
+    которых еще нет в таблице users, и регистрирует их.
+    """
+    try:
+        # INSERT OR IGNORE гарантирует, что мы не создадим дубликатов
+        # Мы берем только user_id, остальные поля (username, name)
+        # заполнятся автоматически, когда пользователь нажмет /start в будущем.
+        cursor.execute('''
+                       INSERT
+                       OR IGNORE INTO users (user_id, joined_at, reminder_time)
+                       SELECT DISTINCT user_id, '2025-12-28 00:00:00', '18:00'
+                       FROM attempts
+                       ''')
+        affected = cursor.rowcount
+        if affected > 0:
+            logging.info(f"Migration: {affected} old users migrated from attempts to users table.")
+    except sqlite3.OperationalError as e:
+        logging.error(f"Migration error (migrate_old_users): {e}")
+
+
 def init_db():
-    """Инициализация структуры и применение миграций."""
+    """Инициализация базы данных и применение миграций."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
 
-        # Таблица пользователей
+        # 1. Создание таблицы пользователей
         cursor.execute('''
                        CREATE TABLE IF NOT EXISTS users
                        (
@@ -34,7 +56,7 @@ def init_db():
                        )
                        ''')
 
-        # Таблица попыток
+        # 2. Создание таблицы попыток
         cursor.execute('''
                        CREATE TABLE IF NOT EXISTS attempts
                        (
@@ -54,10 +76,12 @@ def init_db():
                        )
                        ''')
 
-        # Миграции (новые поля для старых баз)
+        # 3. МИГРАЦИИ СТРУКТУРЫ
         add_column_if_not_exists(cursor, "attempts", "is_first_attempt", "BOOLEAN DEFAULT 1")
         add_column_if_not_exists(cursor, "attempts", "attempt_type", "TEXT")
-        # Новое поле: время напоминания (по умолчанию 18:00)
         add_column_if_not_exists(cursor, "users", "reminder_time", "TEXT DEFAULT '18:00'")
+
+        # 4. МИГРАЦИЯ ДАННЫХ (Восстановление пользователей из истории)
+        migrate_old_users(cursor)
 
         conn.commit()
