@@ -1,7 +1,7 @@
 import os
 import uuid
 import random
-import datetime
+from datetime import datetime, timezone
 from fuzzywuzzy import fuzz
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -39,10 +39,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             users = database.get_all_users_with_reminders()
             success_count = 0
+            # ОТЛАДКА: Считаем количество записей в полученном списке
+            total_users_in_db = len(users)
+            print(f"DEBUG: Starting global reminder. Total users found in DB: {total_users_in_db}")
 
             # 3. Рассылаем всем
             for uid, _ in users:
                 try:
+                    print("DEBUG: Sending global reminder to {uid}")
                     # Для каждого считаем его личный рекорд
                     best_rate = database.get_weekly_best_result(uid)
                     message = (
@@ -73,8 +77,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if text == "Set reminder":
             try:
+                # Получаем время из базы
                 current_time = database.get_user_reminder_time(user_id)
-                server_now = datetime.datetime.utcnow().strftime("%H:%M")
+                # Получаем текущее время UTC (стандарт 2025 года)
+                server_now = datetime.now(timezone.utc).strftime("%H:%M")
 
                 await update.message.reply_text(
                     f"⚙️ *Admin: Reminder Setup*\n\n"
@@ -85,6 +91,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode='Markdown'
                 )
             except Exception as e:
+                # Если здесь случится ошибка (например, NameError), бот не упадет,
+                # а просто выведет ошибку в консоль сервера
                 print(f"ERROR in Set reminder: {e}")
             return
 
@@ -92,7 +100,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 new_time_input = text.replace("Set time ", "").strip()
                 # Проверка формата
-                datetime.datetime.strptime(new_time_input, "%H:%M")
+                datetime.strptime(new_time_input, "%H:%M")
 
                 database.update_user_reminder(user_id, new_time_input)
                 reminders.schedule_user_reminder(context.job_queue, user_id, new_time_input)
