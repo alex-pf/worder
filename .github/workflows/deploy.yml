@@ -1,9 +1,6 @@
 name: Deploy Worder Bot
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch: # Добавляет кнопку "Run workflow" в интерфейсе GitHub
 
 jobs:
