@@ -13,7 +13,8 @@ def get_keyboard(user_id, state=STATE_IDLE):
     # 1. ОБЫЧНЫЕ КНОПКИ (для всех)
     if state == STATE_GAME:
         # В игре только управление процессом
-        buttons.append(['Next word', 'Stop'])
+        buttons.append(['Next word', 'Don\'t know 🤔'])
+        buttons.append(['Stop'])
     else:
         # Вне игры только старт и статистика
         buttons.append(['Start', 'Weekly rate'])
@@ -32,4 +33,3 @@ def get_keyboard(user_id, state=STATE_IDLE):
         buttons.append(admin_row)
 
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
-

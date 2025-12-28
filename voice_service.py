@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 import config
-from pydub import AudioSegment
+from pydub import AudioSegment, effects
 
 client = OpenAI(api_key=config.OPENAI_API_KEY)
 
@@ -21,27 +21,38 @@ async def transcribe_voice(file_path):
         print(f"DEBUG: Ошибка ИИ: {e}")
         return None
 
+
 async def generate_speech(text, output_path):
-    """Генерирует эталонное произношение с паузами."""
+    """Генерирует громкое эталонное произношение с паузами."""
     try:
         temp_speech = output_path + "_raw.mp3"
-        
-        # 1. Генерируем голос через OpenAI TTS
+
+        # 1. Генерируем голос (выбрали Nova для энергии)
         response = client.audio.speech.create(
             model="tts-1",
-            voice="alloy", # Приятный нейтральный голос
+            voice="fable",
             input=text
         )
         response.stream_to_file(temp_speech)
 
-        # 2. Добавляем тишину через pydub
-        one_sec_silence = AudioSegment.silent(duration=1000)
+        # 2. Обработка через pydub
         audio = AudioSegment.from_file(temp_speech)
-        
-        final_audio = one_sec_silence + audio + one_sec_silence
-        final_audio.export(output_path, format="mp3")
 
-        # Удаляем промежуточный файл
+        # --- УСИЛЕНИЕ ЗВУКА ---
+        # Способ А: Просто прибавить Дб (например, +10 Дб)
+        audio = audio + 20
+        print("========> +20 децибел\n")
+        # Способ Б: Нормализация (выравнивание до максимума без искажений)
+        #audio = effects.normalize(audio)
+        # ----------------------
+
+        # Добавляем тишину
+        one_sec_silence = AudioSegment.silent(duration=1000)
+        final_audio = one_sec_silence + audio + one_sec_silence
+
+        # Экспортируем с повышенным битрейтом для четкости
+        final_audio.export(output_path, format="mp3", bitrate="192k")
+
         if os.path.exists(temp_speech):
             os.remove(temp_speech)
         return True

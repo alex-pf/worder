@@ -153,6 +153,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data['is_first_attempt'] = True
         await send_next_word(update, context)
 
+    elif text == "Don't know 🤔" and user_data.get('game_active'):
+        stop_inactivity_timer(user_id, context)
+
+        # Получаем правильное слово
+        correct_word = user_data['words'][user_data['current_index']].lower()
+
+        # Помечаем, что попытка не была первой (чтобы не начислять баллы)
+        user_data['is_first_attempt'] = False
+
+        # 1. Текстовая подсказка
+        await update.message.reply_text(f"It's okay! This is a **{correct_word.upper()}** 🍎", parse_mode='Markdown')
+
+        # 2. Голосовая подсказка (озвучиваем слово)
+        tts_path = os.path.join(config.TEMP_DIR, f"hint_{correct_word}.mp3")
+        if await voice_service.generate_speech(correct_word, tts_path):
+            with open(tts_path, 'rb') as f:
+                await update.message.reply_voice(f)
+            if os.path.exists(tts_path): os.remove(tts_path)
+
+        await update.message.reply_text("Listen and try to say it! Or press 'Next word' ➡️")
+        reset_inactivity_timer(user_id, update.effective_chat.id, context)
+        return
+
     elif user_data.get('game_active'):
         # Логика проверки текстового ответа
         stop_inactivity_timer(user_id, context)
